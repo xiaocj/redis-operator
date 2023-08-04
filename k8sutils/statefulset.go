@@ -19,6 +19,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -32,6 +33,7 @@ type statefulSetParameters struct {
 	Metadata                      metav1.ObjectMeta
 	NodeSelector                  map[string]string
 	PodSecurityContext            *corev1.PodSecurityContext
+	PodManagementPolicy           appsv1.PodManagementPolicyType
 	PriorityClassName             string
 	Affinity                      *corev1.Affinity
 	Tolerations                   *[]corev1.Toleration
@@ -52,6 +54,7 @@ type containerParameters struct {
 	Image                        string
 	ImagePullPolicy              corev1.PullPolicy
 	Resources                    *corev1.ResourceRequirements
+	Port                         *corev1.ContainerPort
 	SecurityContext              *corev1.SecurityContext
 	RedisExporterImage           string
 	RedisExporterImagePullPolicy corev1.PullPolicy
@@ -213,10 +216,11 @@ func generateStatefulSetsDef(stsMeta metav1.ObjectMeta, params statefulSetParame
 		TypeMeta:   generateMetaInformation("StatefulSet", "apps/v1"),
 		ObjectMeta: stsMeta,
 		Spec: appsv1.StatefulSetSpec{
-			Selector:       LabelSelectors(stsMeta.GetLabels()),
-			ServiceName:    fmt.Sprintf("%s-headless", stsMeta.Name),
-			Replicas:       params.Replicas,
-			UpdateStrategy: params.UpdateStrategy,
+			Selector:            LabelSelectors(stsMeta.GetLabels()),
+			ServiceName:         fmt.Sprintf("%s-headless", stsMeta.Name),
+			Replicas:            params.Replicas,
+			UpdateStrategy:      params.UpdateStrategy,
+			PodManagementPolicy: params.PodManagementPolicy,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      stsMeta.GetLabels(),
@@ -339,6 +343,7 @@ func generateContainerDef(name string, containerParams containerParameters, clus
 			Image:           containerParams.Image,
 			ImagePullPolicy: containerParams.ImagePullPolicy,
 			SecurityContext: containerParams.SecurityContext,
+			Ports:           []corev1.ContainerPort{*containerParams.Port},
 			Env: getEnvironmentVariables(
 				containerParams.Role,
 				false,
@@ -350,8 +355,8 @@ func generateContainerDef(name string, containerParams containerParameters, clus
 				containerParams.TLSConfig,
 				containerParams.ACLConfig,
 			),
-			ReadinessProbe: getProbeInfo(containerParams.ReadinessProbe),
-			LivenessProbe:  getProbeInfo(containerParams.LivenessProbe),
+			ReadinessProbe: getReadinessProbeInfo(containerParams.ReadinessProbe, containerParams.Port.ContainerPort),
+			LivenessProbe:  getLivenessProbeInfo(containerParams.LivenessProbe, containerParams.Port.ContainerPort),
 			VolumeMounts:   getVolumeMount(name, containerParams.PersistenceEnabled, clusterMode, externalConfig, mountpath, containerParams.TLSConfig, containerParams.ACLConfig),
 		},
 	}
@@ -533,7 +538,22 @@ func getVolumeMount(name string, persistenceEnabled *bool, clusterMode bool, ext
 }
 
 // getProbeInfo generate probe for Redis StatefulSet
-func getProbeInfo(probe *redisv1beta1.Probe) *corev1.Probe {
+func getLivenessProbeInfo(probe *redisv1beta1.Probe, containerPort int32) *corev1.Probe {
+	return &corev1.Probe{
+		InitialDelaySeconds: probe.InitialDelaySeconds,
+		PeriodSeconds:       probe.PeriodSeconds,
+		FailureThreshold:    probe.FailureThreshold,
+		TimeoutSeconds:      probe.TimeoutSeconds,
+		SuccessThreshold:    probe.SuccessThreshold,
+		ProbeHandler: corev1.ProbeHandler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromInt(int(containerPort)),
+			},
+		},
+	}
+}
+
+func getReadinessProbeInfo(probe *redisv1beta1.Probe, containerPort int32) *corev1.Probe {
 	return &corev1.Probe{
 		InitialDelaySeconds: probe.InitialDelaySeconds,
 		PeriodSeconds:       probe.PeriodSeconds,
@@ -543,8 +563,10 @@ func getProbeInfo(probe *redisv1beta1.Probe) *corev1.Probe {
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{
-					"bash",
-					"/usr/bin/healthcheck.sh",
+					"redis-cli",
+					"-p",
+					strconv.Itoa(int(containerPort)),
+					"ping",
 				},
 			},
 		},

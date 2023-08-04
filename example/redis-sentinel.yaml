@@ -2,17 +2,20 @@
 apiVersion: redis.redis.opstreelabs.in/v1beta1
 kind: RedisSentinel
 metadata:
-  name: redis-sentinel
+  name: sentinel2
 spec:
   clusterSize: 3
   podSecurityContext:
     runAsUser: 1000
     fsGroup: 1000
-  redisSentinelConfig: 
-    redisReplicationName : redis-replication
+  # redisSentinelConfig: 
+  #   failoverTimeout : "190000"
+  #   downAfterMilliseconds: "40000"
   kubernetesConfig:
-    image: quay.io/opstree/redis-sentinel:v7.0.7 
+    image: bitnami/redis-sentinel:6.2
     imagePullPolicy: IfNotPresent
+    # service:
+    #   serviceType: NodePort
     resources:
       requests:
         cpu: 101m

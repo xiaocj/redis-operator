@@ -1417,7 +1417,7 @@ spec:
               readinessProbe:
                 default:
                   failureThreshold: 3
-                  initialDelaySeconds: 1
+                  initialDelaySeconds: 3
                   periodSeconds: 10
                   successThreshold: 1
                   timeoutSeconds: 1
@@ -1601,6 +1601,9 @@ spec:
                 - image
                 type: object
               redisSentinelConfig:
+                default:
+                  downAfterMilliseconds: "30000"
+                  failoverTimeout: "180000"
                 properties:
                   additionalSentinelConfig:
                     type: string
@@ -1609,23 +1612,14 @@ spec:
                     type: string
                   failoverTimeout:
                     default: "180000"
-                    type: string
-                  masterGroupName:
-                    default: myMaster
-                    type: string
-                  parallelSyncs:
-                    default: "1"
+                    description: // +kubebuilder:default:="1" ParallelSyncs string
+                      `json:"parallelSyncs,omitempty"`
                     type: string
                   quorum:
-                    default: "2"
+                    description: RedisReplicationName     string  `json:"redisReplicationName"`
+                      // +kubebuilder:default:=myMaster MasterGroupName string `json:"masterGroupName,omitempty"`
+                      // +kubebuilder:default:="6379" RedisPort string `json:"redisPort,omitempty"`
                     type: string
-                  redisPort:
-                    default: "6379"
-                    type: string
-                  redisReplicationName:
-                    type: string
-                required:
-                - redisReplicationName
                 type: object
               securityContext:
                 description: SecurityContext holds security configuration that will

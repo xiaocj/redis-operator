@@ -8,9 +8,10 @@ import (
 type RedisSentinelSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:default=3
-	Size                *int32                     `json:"clusterSize"`
-	KubernetesConfig    KubernetesConfig           `json:"kubernetesConfig"`
-	RedisExporter       *RedisExporter             `json:"redisExporter,omitempty"`
+	Size             *int32           `json:"clusterSize"`
+	KubernetesConfig KubernetesConfig `json:"kubernetesConfig"`
+	RedisExporter    *RedisExporter   `json:"redisExporter,omitempty"`
+	// +kubebuilder:default:={failoverTimeout: "180000", downAfterMilliseconds: "30000"}
 	RedisSentinelConfig *RedisSentinelConfig       `json:"redisSentinelConfig,omitempty"`
 	NodeSelector        map[string]string          `json:"nodeSelector,omitempty"`
 	PodSecurityContext  *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
@@ -20,7 +21,7 @@ type RedisSentinelSpec struct {
 	Tolerations         *[]corev1.Toleration       `json:"tolerations,omitempty"`
 	TLS                 *TLSConfig                 `json:"TLS,omitempty"`
 	PodDisruptionBudget *RedisPodDisruptionBudget  `json:"pdb,omitempty"`
-	// +kubebuilder:default:={initialDelaySeconds: 1, timeoutSeconds: 1, periodSeconds: 10, successThreshold: 1, failureThreshold:3}
+	// +kubebuilder:default:={initialDelaySeconds: 3, timeoutSeconds: 1, periodSeconds: 10, successThreshold: 1, failureThreshold:3}
 	ReadinessProbe *Probe `json:"readinessProbe,omitempty" protobuf:"bytes,11,opt,name=readinessProbe"`
 	// +kubebuilder:default:={initialDelaySeconds: 1, timeoutSeconds: 1, periodSeconds: 10, successThreshold: 1, failureThreshold:3}
 	LivenessProbe                 *Probe         `json:"livenessProbe,omitempty" protobuf:"bytes,11,opt,name=livenessProbe"`
@@ -30,22 +31,21 @@ type RedisSentinelSpec struct {
 	TerminationGracePeriodSeconds *int64         `json:"terminationGracePeriodSeconds,omitempty" protobuf:"varint,4,opt,name=terminationGracePeriodSeconds"`
 }
 
-func (cr *RedisSentinelSpec) GetSentinelCounts(t string) int32 {
+func (cr *RedisSentinelSpec) GetSentinelCounts() int32 {
 	replica := cr.Size
 	return *replica
 }
 
 type RedisSentinelConfig struct {
 	AdditionalSentinelConfig *string `json:"additionalSentinelConfig,omitempty"`
-	RedisReplicationName     string  `json:"redisReplicationName"`
-	// +kubebuilder:default:=myMaster
-	MasterGroupName string `json:"masterGroupName,omitempty"`
-	// +kubebuilder:default:="6379"
-	RedisPort string `json:"redisPort,omitempty"`
-	// +kubebuilder:default:="2"
+	// RedisReplicationName     string  `json:"redisReplicationName"`
+	// // +kubebuilder:default:=myMaster
+	// MasterGroupName string `json:"masterGroupName,omitempty"`
+	// // +kubebuilder:default:="6379"
+	// RedisPort string `json:"redisPort,omitempty"`
 	Quorum string `json:"quorum,omitempty"`
-	// +kubebuilder:default:="1"
-	ParallelSyncs string `json:"parallelSyncs,omitempty"`
+	// // +kubebuilder:default:="1"
+	// ParallelSyncs string `json:"parallelSyncs,omitempty"`
 	// +kubebuilder:default:="180000"
 	FailoverTimeout string `json:"failoverTimeout,omitempty"`
 	// +kubebuilder:default:="30000"
