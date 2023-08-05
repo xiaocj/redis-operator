@@ -173,7 +173,7 @@ func finalizeRedisClusterPVC(cr *redisv1beta1.RedisCluster) error {
 // finalizeRedisReplicationPVC delete PVCs
 func finalizeRedisReplicationPVC(cr *redisv1beta1.RedisReplication) error {
 	logger := finalizerLogger(cr.Namespace, RedisReplicationFinalizer)
-	for i := 0; i < int(cr.Spec.GetReplicationCounts("replication")); i++ {
+	for i := 0; i < int(cr.Spec.GetReplicationCounts()); i++ {
 		PVCName := cr.Name + "-" + cr.Name + "-" + strconv.Itoa(i)
 		err := generateK8sClient().CoreV1().PersistentVolumeClaims(cr.Namespace).Delete(context.TODO(), PVCName, metav1.DeleteOptions{})
 		if err != nil && !errors.IsNotFound(err) {

@@ -54,7 +54,7 @@ type containerParameters struct {
 	Image                        string
 	ImagePullPolicy              corev1.PullPolicy
 	Resources                    *corev1.ResourceRequirements
-	Port                         *corev1.ContainerPort
+	Port                         corev1.ContainerPort
 	SecurityContext              *corev1.SecurityContext
 	RedisExporterImage           string
 	RedisExporterImagePullPolicy corev1.PullPolicy
@@ -343,7 +343,7 @@ func generateContainerDef(name string, containerParams containerParameters, clus
 			Image:           containerParams.Image,
 			ImagePullPolicy: containerParams.ImagePullPolicy,
 			SecurityContext: containerParams.SecurityContext,
-			Ports:           []corev1.ContainerPort{*containerParams.Port},
+			Ports:           []corev1.ContainerPort{containerParams.Port},
 			Env: getEnvironmentVariables(
 				containerParams.Role,
 				false,
@@ -582,9 +582,9 @@ func getEnvironmentVariables(role string, enabledMetric bool, enabledPassword *b
 
 	var redisHost string
 	if role == "sentinel" {
-		redisHost = "redis://localhost:" + strconv.Itoa(sentinelPort)
+		redisHost = "redis://localhost:" + strconv.Itoa(SentinelPort)
 	} else {
-		redisHost = "redis://localhost:" + strconv.Itoa(redisPort)
+		redisHost = "redis://localhost:" + strconv.Itoa(RedisPort)
 	}
 
 	if tlsConfig != nil {
@@ -711,4 +711,14 @@ func getSidecars(sidecars *[]redisv1beta1.Sidecar) []redisv1beta1.Sidecar {
 		return []redisv1beta1.Sidecar{}
 	}
 	return *sidecars
+}
+
+// retrive all pods of the statefulset by the Selector.MatchLabels
+func GetStatefulSetPods(sts *appsv1.StatefulSet) (*corev1.PodList, error) {
+	labels := []string{}
+	for k, v := range sts.Spec.Selector.MatchLabels {
+		labels = append(labels, fmt.Sprintf("%s=%s", k, v))
+	}
+	selector := strings.Join(labels, ",")
+	return generateK8sClient().CoreV1().Pods(sts.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: selector})
 }

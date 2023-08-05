@@ -2,6 +2,7 @@ package k8sutils
 
 import (
 	redisv1beta1 "github.com/OT-CONTAINER-KIT/redis-operator/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -113,6 +114,10 @@ func generateRedisStandaloneContainerParams(cr *redisv1beta1.Redis) containerPar
 		Image:           cr.Spec.KubernetesConfig.Image,
 		ImagePullPolicy: cr.Spec.KubernetesConfig.ImagePullPolicy,
 		Resources:       cr.Spec.KubernetesConfig.Resources,
+		Port: corev1.ContainerPort{
+			Name:          "redis",
+			ContainerPort: RedisPort,
+		},
 		SecurityContext: cr.Spec.SecurityContext,
 	}
 

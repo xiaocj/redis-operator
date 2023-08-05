@@ -33,6 +33,7 @@ import (
 
 	redisv1beta1 "github.com/OT-CONTAINER-KIT/redis-operator/api/v1beta1"
 	"github.com/OT-CONTAINER-KIT/redis-operator/controllers"
+	rediscli "github.com/OT-CONTAINER-KIT/redis-operator/utils/redis"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -100,23 +101,27 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "RedisCluster")
 		os.Exit(1)
 	}
-	if err = (&controllers.RedisReplicationReconciler{
+	sentinelReconciler := &controllers.RedisSentinelReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("RedisReplication"),
+		Log:    ctrl.Log.WithName("controllers").WithName("RedisSentinel"),
 		Scheme: mgr.GetScheme(),
+	}
+	if err = sentinelReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RedisSentinel")
+		os.Exit(1)
+	}
+	if err = (&controllers.RedisReplicationReconciler{
+		Client:             mgr.GetClient(),
+		Log:                ctrl.Log.WithName("controllers").WithName("RedisReplication"),
+		Scheme:             mgr.GetScheme(),
+		RedisCli:           rediscli.NewRedisClient(),
+		SentinelCli:        rediscli.NewSentinelClient(),
+		SentinelReconciler: sentinelReconciler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RedisReplication")
 		os.Exit(1)
 	}
 
-	if err = (&controllers.RedisSentinelReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("RedisSentinel"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RedisSentinel")
-		os.Exit(1)
-	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {

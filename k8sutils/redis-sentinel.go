@@ -150,9 +150,9 @@ func generateRedisSentinelContainerParams(cr *redisv1beta1.RedisSentinel, readin
 		Image:           cr.Spec.KubernetesConfig.Image,
 		ImagePullPolicy: cr.Spec.KubernetesConfig.ImagePullPolicy,
 		Resources:       cr.Spec.KubernetesConfig.Resources,
-		Port: &corev1.ContainerPort{
+		Port: corev1.ContainerPort{
 			Name:          "sentinel",
-			ContainerPort: sentinelPort,
+			ContainerPort: SentinelPort,
 		},
 		SecurityContext:       cr.Spec.SecurityContext,
 		AdditionalEnvVariable: getSentinelEnvVariable(cr),

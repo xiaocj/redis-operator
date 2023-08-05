@@ -472,7 +472,7 @@ func GetRedisNodesByRole(cr *redisv1beta1.RedisReplication, redisRole string) []
 	}
 
 	var pods []string
-	replicas := cr.Spec.GetReplicationCounts("replication")
+	replicas := cr.Spec.GetReplicationCounts()
 
 	for i := 0; i < int(replicas); i++ {
 

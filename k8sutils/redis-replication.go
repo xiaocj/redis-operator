@@ -1,7 +1,12 @@
 package k8sutils
 
 import (
+	"context"
+
 	redisv1beta1 "github.com/OT-CONTAINER-KIT/redis-operator/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CreateReplicationService method will create replication service for Redis
@@ -14,32 +19,43 @@ func CreateReplicationService(cr *redisv1beta1.RedisReplication) error {
 	} else {
 		enableMetrics = false
 	}
-	additionalServiceAnnotations := map[string]string{}
-	if cr.Spec.KubernetesConfig.Service != nil {
-		additionalServiceAnnotations = cr.Spec.KubernetesConfig.Service.ServiceAnnotations
-	}
-	objectMetaInfo := generateObjectMetaInformation(cr.ObjectMeta.Name, cr.Namespace, labels, annotations)
+
 	headlessObjectMetaInfo := generateObjectMetaInformation(cr.ObjectMeta.Name+"-headless", cr.Namespace, labels, annotations)
-	additionalObjectMetaInfo := generateObjectMetaInformation(cr.ObjectMeta.Name+"-additional", cr.Namespace, labels, generateServiceAnots(cr.ObjectMeta, additionalServiceAnnotations))
 	err := CreateOrUpdateService(cr.Namespace, headlessObjectMetaInfo, redisReplicationAsOwner(cr), false, true, "ClusterIP")
 	if err != nil {
 		logger.Error(err, "Cannot create replication headless service for Redis")
 		return err
 	}
-	err = CreateOrUpdateService(cr.Namespace, objectMetaInfo, redisReplicationAsOwner(cr), enableMetrics, false, "ClusterIP")
-	if err != nil {
-		logger.Error(err, "Cannot create replication service for Redis")
-		return err
-	}
-	additionalServiceType := "ClusterIP"
+	// objectMetaInfo := generateObjectMetaInformation(cr.ObjectMeta.Name, cr.Namespace, labels, annotations)
+	// err = CreateOrUpdateService(cr.Namespace, objectMetaInfo, redisReplicationAsOwner(cr), enableMetrics, false, "ClusterIP")
+	// if err != nil {
+	// 	logger.Error(err, "Cannot create replication service for Redis")
+	// 	return err
+	// }
+
+	// additional service
+	additionalServiceName := cr.ObjectMeta.Name + "-additional"
 	if cr.Spec.KubernetesConfig.Service != nil {
+		additionalServiceType := "ClusterIP"
 		additionalServiceType = cr.Spec.KubernetesConfig.Service.ServiceType
+		additionalServiceAnnotations := cr.Spec.KubernetesConfig.Service.ServiceAnnotations
+		additionalObjectMetaInfo := generateObjectMetaInformation(additionalServiceName, cr.Namespace, labels, generateServiceAnots(cr.ObjectMeta, additionalServiceAnnotations))
+		err = CreateOrUpdateService(cr.Namespace, additionalObjectMetaInfo, redisReplicationAsOwner(cr), false, false, additionalServiceType)
+		if err != nil {
+			logger.Error(err, "Cannot create additional service for Redis Replication")
+			return err
+		}
+	} else {
+		getOpts := v1.GetOptions{
+			TypeMeta: generateMetaInformation("Service", "v1"),
+		}
+		_, err := generateK8sClient().CoreV1().Services(cr.Namespace).Get(context.TODO(), additionalServiceName, getOpts)
+		if err == nil || !k8serrors.IsNotFound(err) {
+			logger.Info("Delete additional service")
+			generateK8sClient().CoreV1().Services(cr.Namespace).Delete(context.TODO(), additionalServiceName, v1.DeleteOptions{})
+		}
 	}
-	err = CreateOrUpdateService(cr.Namespace, additionalObjectMetaInfo, redisReplicationAsOwner(cr), false, false, additionalServiceType)
-	if err != nil {
-		logger.Error(err, "Cannot create additional service for Redis Replication")
-		return err
-	}
+
 	return nil
 }
 
@@ -65,8 +81,16 @@ func CreateReplicationRedis(cr *redisv1beta1.RedisReplication) error {
 	return nil
 }
 
+func GetRedisPassword(cr *redisv1beta1.RedisReplication) (string, error) {
+	if cr.Spec.KubernetesConfig.ExistingPasswordSecret != nil {
+		return getRedisPassword(cr.Namespace, *cr.Spec.KubernetesConfig.ExistingPasswordSecret.Name, *cr.Spec.KubernetesConfig.ExistingPasswordSecret.Key)
+	}
+
+	return "", nil
+}
+
 func generateRedisReplicationParams(cr *redisv1beta1.RedisReplication) statefulSetParameters {
-	replicas := cr.Spec.GetReplicationCounts("Replication")
+	replicas := cr.Spec.GetReplicationCounts()
 	res := statefulSetParameters{
 		Replicas:                      &replicas,
 		ClusterMode:                   false,
@@ -105,6 +129,10 @@ func generateRedisReplicationContainerParams(cr *redisv1beta1.RedisReplication) 
 		Image:           cr.Spec.KubernetesConfig.Image,
 		ImagePullPolicy: cr.Spec.KubernetesConfig.ImagePullPolicy,
 		Resources:       cr.Spec.KubernetesConfig.Resources,
+		Port: corev1.ContainerPort{
+			Name:          "replication",
+			ContainerPort: RedisPort,
+		},
 		SecurityContext: cr.Spec.SecurityContext,
 	}
 

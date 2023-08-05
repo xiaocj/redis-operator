@@ -29,7 +29,7 @@ type RedisReplicationSpec struct {
 	TerminationGracePeriodSeconds *int64         `json:"terminationGracePeriodSeconds,omitempty" protobuf:"varint,4,opt,name=terminationGracePeriodSeconds"`
 }
 
-func (cr *RedisReplicationSpec) GetReplicationCounts(t string) int32 {
+func (cr *RedisReplicationSpec) GetReplicationCounts() int32 {
 	replica := cr.Size
 	return *replica
 }

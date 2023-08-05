@@ -98,6 +98,10 @@ func generateRedisClusterContainerParams(cr *redisv1beta1.RedisCluster, security
 		Image:           cr.Spec.KubernetesConfig.Image,
 		ImagePullPolicy: cr.Spec.KubernetesConfig.ImagePullPolicy,
 		Resources:       cr.Spec.KubernetesConfig.Resources,
+		Port: corev1.ContainerPort{
+			Name:          "redis",
+			ContainerPort: RedisPort,
+		},
 		SecurityContext: securityContext,
 	}
 	if cr.Spec.Storage != nil {

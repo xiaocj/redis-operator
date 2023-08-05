@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	redisPort             = 6379
-	sentinelPort          = 26379
+	RedisPort             = 6379
+	SentinelPort          = 26379
 	redisExporterPort     = 9121
 	redisExporterPortName = "redis-exporter"
 )
@@ -28,10 +28,10 @@ func generateServiceDef(serviceMeta metav1.ObjectMeta, enableMetrics bool, owner
 	var PortNum int32
 	if serviceMeta.Labels["role"] == "sentinel" {
 		PortName = "sentinel-client"
-		PortNum = sentinelPort
+		PortNum = SentinelPort
 	} else {
 		PortName = "redis-client"
-		PortNum = redisPort
+		PortNum = RedisPort
 	}
 	service := &corev1.Service{
 		TypeMeta:   generateMetaInformation("Service", "v1"),
